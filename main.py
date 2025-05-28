@@ -20,7 +20,7 @@ logging.basicConfig(
 )
 
 # Estados da conversa
-MENU, RASTREAR_CPF, SUPORTE = range(3)
+MENU, RASTREAR_CPF, INSTRUCOES = range(3)
 
 # Dados fictícios para rastreamento
 dados_rastreamento = {
@@ -49,7 +49,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     keyboard = [
         [
             InlineKeyboardButton("📦 Rastrear Pedido", callback_data="rastrear"),
-            InlineKeyboardButton("🛠️ Suporte", callback_data="suporte"),
+            InlineKeyboardButton("📖 Instruções", callback_data="instrucoes"),
         ]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -67,9 +67,16 @@ async def menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     if query.data == "rastrear":
         await query.edit_message_text("Por favor, informe seu CPF para rastrear o pedido:")
         return RASTREAR_CPF
-    elif query.data == "suporte":
-        await query.edit_message_text("Por favor, descreva sua dúvida ou problema:")
-        return SUPORTE
+    elif query.data == "instrucoes":
+        await query.edit_message_text(
+            "📖 *Instruções de Uso:*\n\n"
+            "1. Envie /start para iniciar a conversa.\n"
+            "2. Escolha entre \"📦 Rastrear Pedido\" ou \"📖 Instruções\".\n"
+            "3. Para encerrar a conversa, envie /sair.\n"
+            "4. Para reiniciar a conversa, envie qualquer mensagem ou /start.",
+            parse_mode="Markdown"
+        )
+        return MENU
 
 # Função para rastrear pedidos
 async def rastrear(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -82,13 +89,6 @@ async def rastrear(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     else:
         mensagem = "Nenhum pedido encontrado para o CPF informado."
     await update.message.reply_text(mensagem)
-    return MENU
-
-# Função para suporte
-async def suporte(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    mensagem = update.message.text
-    await update.message.reply_text("Obrigado por entrar em contato! Nossa equipe responderá em breve.")
-    # Aqui você pode adicionar lógica para enviar a mensagem para um canal ou salvar em um banco de dados
     return MENU
 
 # Comando /sair
@@ -124,7 +124,6 @@ def main():
         states={
             MENU: [CallbackQueryHandler(menu)],
             RASTREAR_CPF: [MessageHandler(filters.TEXT & ~filters.COMMAND, rastrear)],
-            SUPORTE: [MessageHandler(filters.TEXT & ~filters.COMMAND, suporte)],
         },
         fallbacks=[CommandHandler("sair", sair)],
         allow_reentry=True,
