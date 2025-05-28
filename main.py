@@ -2,12 +2,22 @@ import logging
 import random
 import os
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ConversationHandler
-from flask import Flask, request, jsonify
+from telegram.ext import (
+    ApplicationBuilder,
+    CommandHandler,
+    CallbackQueryHandler,
+    MessageHandler,
+    ConversationHandler,
+    ContextTypes,
+    filters,
+)
+from flask import Flask
 import threading
 
 # Configuração do logging
-logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
+)
 
 # Estados da conversa
 MENU, RASTREAR_CPF, SUPORTE = range(3)
@@ -34,7 +44,7 @@ def gerar_dados_ficticios():
             dados_rastreamento[cpf].append({"codigo": codigo, "status": status})
 
 # Comando /start
-async def start(update: Update, context) -> int:
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     gerar_dados_ficticios()
     keyboard = [
         [
@@ -51,7 +61,7 @@ async def start(update: Update, context) -> int:
     return MENU
 
 # Manipulador de botões
-async def menu(update: Update, context) -> int:
+async def menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
     await query.answer()
     if query.data == "rastrear":
@@ -62,7 +72,7 @@ async def menu(update: Update, context) -> int:
         return SUPORTE
 
 # Função para rastrear pedidos
-async def rastrear(update: Update, context) -> int:
+async def rastrear(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     cpf = update.message.text.strip()
     pedidos = dados_rastreamento.get(cpf)
     if pedidos:
@@ -72,19 +82,25 @@ async def rastrear(update: Update, context) -> int:
     else:
         mensagem = "Nenhum pedido encontrado para o CPF informado."
     await update.message.reply_text(mensagem)
-    return ConversationHandler.END
+    return MENU
 
 # Função para suporte
-async def suporte(update: Update, context) -> int:
+async def suporte(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     mensagem = update.message.text
     await update.message.reply_text("Obrigado por entrar em contato! Nossa equipe responderá em breve.")
     # Aqui você pode adicionar lógica para enviar a mensagem para um canal ou salvar em um banco de dados
+    return MENU
+
+# Comando /sair
+async def sair(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    await update.message.reply_text("Operação encerrada. Volte sempre que precisar!")
     return ConversationHandler.END
 
-# Comando /cancel
-async def cancel(update: Update, context) -> int:
-    await update.message.reply_text("Operação cancelada. Volte sempre que precisar!")
-    return ConversationHandler.END
+# Manipulador de mensagens fora da conversa
+async def mensagem_fora_conversa(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await update.message.reply_text(
+        "Olá! Parece que você deseja iniciar uma nova conversa. Envie /start para começar."
+    )
 
 # Função principal
 def main():
@@ -101,7 +117,7 @@ def main():
     threading.Thread(target=run).start()
 
     # Inicializa o bot do Telegram
-    application = Application.builder().token("7304383872:AAH9jS7Vgix9TrgwjDWRBfg1ejgN6haik-0").build()
+    application = ApplicationBuilder().token("7304383872:AAH9jS7Vgix9TrgwjDWRBfg1ejgN6haik-0").build()
 
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
@@ -110,10 +126,14 @@ def main():
             RASTREAR_CPF: [MessageHandler(filters.TEXT & ~filters.COMMAND, rastrear)],
             SUPORTE: [MessageHandler(filters.TEXT & ~filters.COMMAND, suporte)],
         },
-        fallbacks=[CommandHandler("cancel", cancel)],
+        fallbacks=[CommandHandler("sair", sair)],
+        allow_reentry=True,
     )
 
     application.add_handler(conv_handler)
+
+    # Manipulador para mensagens fora da conversa
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, mensagem_fora_conversa))
 
     application.run_polling()
 
