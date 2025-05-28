@@ -101,7 +101,7 @@ def main():
     threading.Thread(target=run).start()
 
     # Inicializa o bot do Telegram
-    application = Application.builder().token("7304383872:AAH9jS7Vgix9TrgwjDWRBfg1ejgN6haik-0").build()
+    application = Application.builder().token("SEU_TOKEN_AQUI").build()
 
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
